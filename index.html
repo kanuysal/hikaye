@@ -1319,41 +1319,39 @@
 
               const stopCurrent = () => {
                   if (!currentNarration) return;
-                  const audio = currentNarration;
+                  try {
+                      currentNarration.stop();
+                      currentNarration.unload();
+                  } catch (e) {}
                   currentNarration = null;
-                  if (playPromise) {
-                      playPromise.then(() => { try { audio.pause(); } catch(e) {} }).catch(() => {});
-                      playPromise = null;
-                  } else {
-                      try { audio.pause(); } catch(e) {}
-                  }
               };
 
               const playLocalMP3 = (id) => {
-                  const fileId = id.replace(/chapter-(\d+)-(\d+)/g, '$1$2').replace(/outro-(\d+)/g, 'outro$1');
+                  const fileId = id.replace(/chapter-/g, '').replace(/-/g, '').replace(/outro-/g, 'outro');
                   const audioPath = `wp-content/themes/las-cases/resources/assets/audio/${fileId}.mp3`;
 
                   stopCurrent();
-                  console.log('[ML Audio]', id, '→', audioPath);
+                  console.log('[ML Audio] Request:', id, '→', audioPath);
 
-                  const audio = new Audio(audioPath);
-                  console.log(`[ML Audio] Creating Audio object for: ${audioPath}`);
-                  currentNarration = audio;
-
-                  const isMuted = document.querySelector('.js-audio-button')?.classList.contains('is-muted') || false;
-                  audio.muted = isMuted;
-                  console.log(`[ML Audio] Mute state: ${isMuted}`);
-
-                  playPromise = audio.play();
-                  if (playPromise) {
-                      playPromise.then(() => console.log(`[ML Audio] Play started: ${audioPath}`))
-                      .catch(e => {
-                          if (e.name !== 'AbortError') console.error(`[ML Audio] Play failed: ${audioPath}`, e);
+                  try {
+                      const sound = new Howl({
+                          src: [audioPath],
+                          html5: true, // Use HTML5 audio for large files
+                          volume: 1.0,
+                          onplay: () => console.log(`[ML Audio] Started playing: ${audioPath}`),
+                          onloaderror: (id, err) => console.error(`[ML Audio] Load error: ${audioPath}`, err),
+                          onplayerror: (id, err) => console.error(`[ML Audio] Play error: ${audioPath}`, err)
                       });
+                      
+                      currentNarration = sound;
+                      sound.play();
+
+                      // Handle mute state
+                      const isMuted = document.querySelector('.js-audio-button')?.classList.contains('is-muted') || false;
+                      sound.mute(isMuted);
+                  } catch (e) {
+                      console.error(`[ML Audio] Exception playing: ${audioPath}`, e);
                   }
-                  audio.onended = () => {
-                      if (currentNarration === audio) { currentNarration = null; playPromise = null; }
-                  };
               };
 
               const attachBridge = setInterval(() => {
