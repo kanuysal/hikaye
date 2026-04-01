@@ -1252,7 +1252,10 @@
                       node.textContent = node.textContent
                           .replace(/\u015f/g, 's').replace(/\u015e/g, 'S')   // ş→s, Ş→S
                           .replace(/\u011f/g, 'g').replace(/\u011e/g, 'G')   // ğ→g, Ğ→G
-                          .replace(/\u0131/g, 'i').replace(/\u0130/g, 'I');  // ı→i, İ→I
+                          .replace(/\u0131/g, 'i').replace(/\u0130/g, 'I')   // ı→i, İ→I
+                          .replace(/\u00fc/g, 'u').replace(/\u00dc/g, 'U')   // ü→u, Ü→U
+                          .replace(/\u00f6/g, 'o').replace(/\u00d6/g, 'O')   // ö→o, Ö→O
+                          .replace(/\u00e7/g, 'c').replace(/\u00c7/g, 'C');  // ç→c, Ç→C
                   } else if (node.nodeType === Node.ELEMENT_NODE) {
                       normalizeWebGLChars(node);
                   }
