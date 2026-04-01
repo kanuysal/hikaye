@@ -733,7 +733,7 @@
 
           <!-- Chapter 1 - Zamanin Kumlari -->
           <div class="chapter-title-card | js-chapter-title-card" data-chapter="chapter-one" style="opacity:0;visibility:hidden">
-            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bolum Bir</p>
+            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bölüm Bir</p>
             <div class="chapter-title-card__title | z-1">
               <div class="chapter-title-card__title__italic t-title-italic | js-chapter-title-card:italic">Zamanin Kumlari</div>
               <div class="t-uppercase t-title | js-chapter-title-card:normal">Gri Daglar<br>ve Yikilis</div>
@@ -749,7 +749,7 @@
 
           <!-- Chapter 2 - Altin Nehirler -->
           <div class="chapter-title-card | js-chapter-title-card" data-chapter="chapter-two-one" style="opacity:0;visibility:hidden">
-            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bolum Iki</p>
+            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bölüm Iki</p>
             <div class="chapter-title-card__title | z-1">
               <div class="chapter-title-card__title__italic t-title-italic | js-chapter-title-card:italic">Altin Nehirler</div>
               <div class="t-uppercase t-title | js-chapter-title-card:normal">Iplikler<br>ve Dokunus</div>
@@ -765,7 +765,7 @@
 
           <!-- Chapter 3 - Suyun Safligi -->
           <div class="chapter-title-card | js-chapter-title-card" data-chapter="chapter-three" style="opacity:0;visibility:hidden">
-            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bolum Uc</p>
+            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bölüm Uc</p>
             <div class="chapter-title-card__title | z-1">
               <div class="chapter-title-card__title__italic t-title-italic | js-chapter-title-card:italic">Suyun Safligi</div>
               <div class="t-uppercase t-title | js-chapter-title-card:normal">Duru Dere<br>ve Kum Taneleri</div>
@@ -781,7 +781,7 @@
 
           <!-- Chapter 4 - Kok Salmak -->
           <div class="chapter-title-card | js-chapter-title-card" data-chapter="chapter-four-one" style="opacity:0;visibility:hidden">
-            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bolum Dort</p>
+            <p class="chapter-title-card__subtitle | z-1 | js-chapter-title-card:subtitle">Bölüm Dort</p>
             <div class="chapter-title-card__title | z-1">
               <div class="chapter-title-card__title__italic t-title-italic | js-chapter-title-card:italic">Kok Salmak</div>
               <div class="t-uppercase t-title | js-chapter-title-card:normal">Altin Tozlari<br>ve Kok salmak</div>
@@ -1196,11 +1196,25 @@
       // Font Fix & WebGL Font State Control
       if (window.globalData && window.globalData.webglFonts) {
         for (const key in window.globalData.webglFonts) {
-          if (typeof window.globalData.webglFonts[key] === 'string') {
-            try {
-              window.globalData.webglFonts[key] = JSON.parse(window.globalData.webglFonts[key]);
-            } catch (e) { console.error("Font fix error:", e); }
-          }
+          try {
+            const fontData = typeof window.globalData.webglFonts[key] === 'string' 
+              ? JSON.parse(window.globalData.webglFonts[key]) 
+              : window.globalData.webglFonts[key];
+            
+            if (fontData && fontData.glyphs) {
+              // Map 32 (Space) as fallback for missing characters to prevent width errors
+              const spaceGlyph = fontData.glyphs.find(g => g.id === 32) || fontData.glyphs[0];
+              const existingIds = new Set(fontData.glyphs.map(g => g.id));
+              
+              // Cover common Turkish and extended range
+              for (let i = 0; i < 1000; i++) {
+                if (!existingIds.has(i)) {
+                  fontData.glyphs.push({...spaceGlyph, id: i});
+                }
+              }
+              window.globalData.webglFonts[key] = fontData;
+            }
+          } catch (e) { console.error("Font fix error:", e); }
         }
       }
 
@@ -1218,7 +1232,7 @@
           const originalShaderMaterial = window.THREE ? window.THREE.ShaderMaterial : null;
           if (originalShaderMaterial) {
               window.THREE.ShaderMaterial = function(parameters) {
-                  if (parameters && parameters.fragmentShader && parameters.fragmentShader.includes('pxRange')) {
+                  if (parameters && parameters.fragmentShader && (parameters.fragmentShader.includes('pxRange') || parameters.fragmentShader.includes('f_msdf'))) {
                       parameters.uniforms = parameters.uniforms || {};
                       if (!parameters.uniforms.f_msdf) parameters.uniforms.f_msdf = { value: 0 };
                       if (!parameters.uniforms.f_pxRange) parameters.uniforms.f_pxRange = { value: 2 };
@@ -1323,15 +1337,18 @@
                   console.log('[ML Audio]', id, '→', audioPath);
 
                   const audio = new Audio(audioPath);
+                  console.log(`[ML Audio] Creating Audio object for: ${audioPath}`);
                   currentNarration = audio;
 
                   const isMuted = document.querySelector('.js-audio-button')?.classList.contains('is-muted') || false;
                   audio.muted = isMuted;
+                  console.log(`[ML Audio] Mute state: ${isMuted}`);
 
                   playPromise = audio.play();
                   if (playPromise) {
-                      playPromise.catch(e => {
-                          if (e.name !== 'AbortError') console.warn('[ML Audio] Play failed:', audioPath, e.message);
+                      playPromise.then(() => console.log(`[ML Audio] Play started: ${audioPath}`))
+                      .catch(e => {
+                          if (e.name !== 'AbortError') console.error(`[ML Audio] Play failed: ${audioPath}`, e);
                       });
                   }
                   audio.onended = () => {
@@ -1413,10 +1430,13 @@
 
 
           // Localization Persistence
-          setInterval(() => {
+          const persistLocalization = () => {
               const skipBtn = document.querySelector('.js-skip-chapter');
-              if (skipBtn && skipBtn.innerText !== 'SIRADAKI BOLUM') skipBtn.innerText = 'SIRADAKI BOLUM';
-          }, 1000);
+              if (skipBtn && skipBtn.innerText !== 'SIRADAKİ BÖLÜM' && skipBtn.innerText !== 'SIRADAKI BOLUM') {
+                  skipBtn.innerText = 'SIRADAKİ BÖLÜM';
+              }
+          };
+          setInterval(persistLocalization, 3000); // Less frequent check to avoid render loops
       })();
     </script>
     <script
