@@ -957,47 +957,55 @@ var globalData = {"publicUrl":"\/wp-content\/themes\/las-cases\/public\/","asset
 </script>
 <script type="module" defer="defer" src="/wp-content/themes/las-cases/public/build/js-d1ee9df5.js" id="module/resources/assets/js/theme.js-js"></script>
 		<script>
-		// Ses ve Altyazı Senkronizasyon Scripti
+		// Turkce Ses ve Altyazi Senkronizasyon Proxy Scripti
 		(function() {
-			const subtitles = document.querySelectorAll('.chapter-subtitles__subtitle');
-			if (!subtitles.length) return;
-
 			const voicePath = '/wp-content/themes/las-cases/resources/assets/audio/';
 			const audioMap = new Map();
+			
+			// Orijinal ses ID'lerinden Turkce mp3 isimlerine haritalama
+			const trVoiceMap = {
+				'chapter-1-1': '11', 'chapter-1-2': '12', 'chapter-1-3': '13', 'chapter-1-4': '14',
+				'chapter-2-1': '21', 'chapter-2-2': '22', 'chapter-2-3': '23', 'chapter-2-4': '24',
+				'chapter-3-1': '31', 'chapter-3-2': '32', 'chapter-3-3': '33', 'chapter-3-4': '34',
+				'chapter-4-1': '41', 'chapter-4-2': '42', 'chapter-4-3': '43', 'chapter-4-4': '44',
+				'outro-1': 'outro1', 'outro-2': 'outro2'
+			};
 
-			const observer = new MutationObserver((mutations) => {
-				mutations.forEach((mutation) => {
-					if (mutation.attributeName === 'style' || mutation.attributeName === 'class') {
-						const el = mutation.target;
-						const isVisible = window.getComputedStyle(el).opacity > 0.5;
-						const voiceId = el.getAttribute('data-voice');
-
-						if (isVisible && voiceId && !el._lastPlay) {
-							// Bir sesin tek seferde caldigindan emin ol
-							el._lastPlay = Date.now();
-							playVoice(voiceId);
-						} else if (!isVisible) {
-							el._lastPlay = null;
-						}
-					}
-				});
-			});
-
-			subtitles.forEach(s => observer.observe(s, { attributes: true }));
-
-			function playVoice(id) {
+			function playTrVoice(id) {
 				const src = `${voicePath}${id}.mp3`;
 				if (!audioMap.has(src)) {
-					// Howler.js engine icinde zaten yuklu, onu kullanalim
-					if (window.Howl) {
-						audioMap.set(src, new Howl({ src: [src], volume: 1 }));
-					} else {
-						audioMap.set(src, new Audio(src));
-					}
+					const audio = window.Howl ? new Howl({ src: [src], volume: 1 }) : new Audio(src);
+					audioMap.set(src, audio);
 				}
-				const audio = audioMap.get(src);
-				if (audio.play) audio.play();
+				const sound = audioMap.get(src);
+				if (sound.play) sound.play();
 			}
+
+			// Engine yuklendiginde g.Audio.play metodunu yakalayalim
+			const checkGlobal = setInterval(() => {
+				if (window.g && window.g.Audio && window.g.Audio.play) {
+					clearInterval(checkGlobal);
+					
+					const originalPlay = window.g.Audio.play.bind(window.g.Audio);
+					window.g.Audio.play = function(options) {
+						if (!options || !options.key) return originalPlay(options);
+						
+						// "sfx.chapter-1-1" formatindaki key'i temizle
+						const soundKey = options.key.replace('sfx.', '');
+						const trFile = trVoiceMap[soundKey];
+
+						if (trFile) {
+							console.log('Playing Turkish Voiceover:', trFile);
+							playTrVoice(trFile);
+							// Orijinal (Ingilizce) sesi caldirmiyoruz
+							return;
+						}
+						
+						return originalPlay(options);
+					};
+					console.log('Mina Lidya Audio Proxy: Active');
+				}
+			}, 100);
 		})();
 	</script>
 </body>
